@@ -27,9 +27,13 @@ else
     managed_header "05-tmux"
     cat <<'EOF'
 set -g default-terminal "tmux-256color"
-# Propagate the client's real COLORTERM into new panes; never force it.
-# (mosh clients claim truecolor but strip 24-bit sequences.)
-set -ga update-environment " COLORTERM"
+# Keep COLORTERM out of panes, including when the server inherited it.
+# Use tmux's standard forwarding list without COLORTERM.
+set -g update-environment "DISPLAY KRB5CCNAME SSH_ASKPASS SSH_AUTH_SOCK SSH_AGENT_PID SSH_CONNECTION WINDOWID XAUTHORITY"
+set-environment -gu COLORTERM
+# Clear session values left by earlier configs when clients reconnect.
+set-hook -g client-attached 'set-environment -r COLORTERM'
+set-hook -g session-created 'set-environment -r COLORTERM'
 # Non-RGB features for all clients; RGB only for terminals that really do
 # truecolor. Generic xterm* is deliberately excluded: Terminus-over-mosh
 # declares xterm, and mosh cannot transport 24-bit color. Direct-SSH users

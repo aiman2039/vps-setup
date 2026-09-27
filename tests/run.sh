@@ -293,13 +293,16 @@ t5="scripts/05-tmux.sh"
 if ! grep -q 'set-environment -g COLORTERM' "$t5" \
   && ! grep -q 'terminal-overrides ",\*:Tc"' "$t5" \
   && ! grep -q 'terminal-features ",\*:RGB' "$t5" \
-  && grep -q 'update-environment " COLORTERM"' "$t5" \
+  && ! grep -q '^set .*update-environment .*COLORTERM' "$t5" \
+  && grep -q '^set-environment -gu COLORTERM$' "$t5" \
+  && grep -q "^set-hook -g client-attached 'set-environment -r COLORTERM'$" "$t5" \
+  && grep -q "^set-hook -g session-created 'set-environment -r COLORTERM'$" "$t5" \
   && grep -q 'terminal-features ",xterm-ghostty:RGB"' "$t5"; then
   ok "05-tmux scoped truecolor"
 else
   no "05-tmux scoped truecolor"
 fi
-# 11b. sshd accepts COLORTERM (else tmux propagation has nothing to carry),
+# 11b. sshd accepts COLORTERM for direct SSH shells,
 # without dropping Ubuntu's default LANG/LC_* forwarding (first-value-wins).
 if grep -qF 'AcceptEnv LANG LC_* COLORTERM' scripts/02-ssh-only.sh; then
   ok "02-ssh-only accepts COLORTERM"
@@ -364,6 +367,24 @@ if grep -q 'tightvncserver' scripts/06-vnc.sh \
   ok "06-vnc jammy passwd fallback wiring"
 else
   no "06-vnc jammy passwd fallback wiring"
+fi
+
+# 14. vnc session override (portable: no root/apt)
+s1="$(VNC_SESSION=/bin/true bash -c 'source scripts/00-common.sh; detect_vnc_session' 2>/dev/null)"
+if ( VNC_SESSION=/nonexistent-vnc-session-$$ bash -c 'source scripts/00-common.sh; detect_vnc_session' >/dev/null 2>&1 ); then s2=kept; else s2=died; fi
+s3="$(env -u VNC_SESSION bash -c 'source scripts/00-common.sh; detect_vnc_session' 2>/dev/null)"
+if [[ "$s1" == "/bin/true" && "$s2" == "died" && -n "$s3" ]]; then
+  ok "detect_vnc_session override honored"
+else
+  no "detect_vnc_session override honored"
+fi
+# 14b. 06-vnc uses the shared detector + documents VNC_SESSION
+if grep -q 'detect_vnc_session' scripts/06-vnc.sh \
+  && grep -q 'VNC_SESSION' scripts/06-vnc.sh \
+  && grep -q 'VNC_SESSION' .env.example; then
+  ok "06-vnc session override wiring"
+else
+  no "06-vnc session override wiring"
 fi
 
 printf 'done: %d pass, %d fail, %d skip\n' "$pass" "$fail" "$skip"

@@ -97,3 +97,20 @@ pin_alternative() {
     fi
   fi
 }
+
+# detect_vnc_session: print the desktop session binary for VNC xstartup.
+# VNC_SESSION overrides auto-detection (must be executable); default prefers
+# GNOME, then MATE/Xfce/LXDE/Plasma, else xterm.
+detect_vnc_session() {
+  local s
+  if [[ -n "${VNC_SESSION:-}" ]]; then
+    [[ -x "$VNC_SESSION" ]] || die "VNC_SESSION='$VNC_SESSION' is not executable"
+    printf '%s' "$VNC_SESSION"
+    return 0
+  fi
+  if [[ -x /usr/bin/gnome-session ]]; then printf '/usr/bin/gnome-session'; return 0; fi
+  for s in /usr/bin/mate-session /usr/bin/startxfce4 /usr/bin/lxsession /usr/bin/startlxde /usr/bin/startplasma-x11; do
+    if [[ -x "$s" ]]; then printf '%s' "$s"; return 0; fi
+  done
+  printf '/usr/bin/xterm'
+}

@@ -4,11 +4,13 @@
 # Existing ~/.vnc/xstartup and password are kept unless forced.
 # NOTE: Ubuntu 22.04+ TigerVNC ships no vncpasswd, so tightvncserver is
 # installed on demand for its compatible vncpasswd (server stays TigerVNC).
+# GNOME/mutter usually dies under Xvnc; prefer VNC_SESSION=/usr/bin/startxfce4.
 #
 # Env:
 #   VNC_USER (NEW_USER/agent)  VNC_DISPLAY (1)  VNC_GEOMETRY (1920x1080)
 #   VNC_DEPTH (24)  VNC_PASSWORD ("")  VNC_UPDATE_PASSWORD (false)
 #   VNC_LOCALHOST (no)  VNC_FORCE_XSTARTUP (false)
+#   VNC_SESSION ("") explicit session binary, e.g. /usr/bin/startxfce4
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/00-common.sh"
 
@@ -54,18 +56,10 @@ else
   warn "no VNC password: set VNC_PASSWORD and re-run to finish VNC setup"
 fi
 
-detect_session() {
-  if [[ -x /usr/bin/gnome-session ]]; then printf '/usr/bin/gnome-session'; return; fi
-  for s in /usr/bin/mate-session /usr/bin/startxfce4 /usr/bin/lxsession /usr/bin/startlxde /usr/bin/startplasma-x11; do
-    if [[ -x "$s" ]]; then printf '%s' "$s"; return; fi
-  done
-  printf '/usr/bin/xterm'
-}
-
 if [[ -f "$home/.vnc/xstartup" && "$VNC_FORCE_XSTARTUP" != "true" ]]; then
   log "xstartup already present"
 else
-  session="$(detect_session)"
+  session="$(detect_vnc_session)"
   log "xstartup session: $session"
   tmp=$(mktemp)
   {

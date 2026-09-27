@@ -49,5 +49,6 @@ yourself out. All config defaults live in [.env.example](.env.example).
 - VNC: set `VNC_PASSWORD` on first run (display `:1` = port `5901`).
   Existing `~/.vnc/xstartup` and password are kept on re-runs.
   Ubuntu 22.04+ TigerVNC ships no vncpasswd; the script borrows TightVNC's compatible one automatically.
+  GNOME sessions usually die under VNC; use VNC_SESSION=/usr/bin/startxfce4.
 - Tailscale: set `TAILSCALE_AUTH_KEY` (ephemeral, reusable) or run
   `tailscale up` manually afterwards.
