@@ -59,6 +59,11 @@ tmp=$(mktemp)
   printf 'PermitRootLogin %s\n' "$SSH_PERMIT_ROOT"
   printf 'PermitEmptyPasswords no\n'
   printf 'X11Forwarding yes\n'
+  # Accept COLORTERM from SSH clients (SendEnv/SetEnv) so tmux can propagate
+  # the real client value into panes (see 05-tmux). sshd takes the FIRST
+  # value and this file sorts before Ubuntu's default `AcceptEnv LANG LC_*`,
+  # so those patterns must be repeated here or locale forwarding breaks.
+  printf 'AcceptEnv LANG LC_* COLORTERM\n'
 } > "$tmp"
 changed=false
 if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then

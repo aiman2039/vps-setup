@@ -38,6 +38,7 @@ Preview: `./setup.sh --dry-run --only user,vnc`. List: `./setup.sh --list`.
 | 14-opencode | opencode agent | standalone binary via official installer (`~/.opencode/bin`) |
 | 15-pi | Pi agent | npm global install (needs node from step 12) |
 | 16-gh | GitHub CLI | official repo, token auth, `gh auth setup-git` so git reuses the token |
+| 17-agents-md | shared AGENTS.md | installs repo `AGENTS.md` as `~/.AGENTS.md`, symlinks it into codex/grok/muse/pi/opencode/claude config dirs (+ `CLAUDE.md` for Claude) |
 | 13-notify | ntfy agent pings | skipped unless `NTFY_TOPIC` set; hooks claude/codex/muse/opencode/grok/pi/tmux to ping your phone when waiting (optional `MACHINE_NAME` tag + tap-to-SSH `NTFY_CLICK_URL`) |
 
 Order matters: user is created before sshd is hardened, so you can't lock
@@ -47,5 +48,6 @@ yourself out. All config defaults live in [.env.example](.env.example).
 
 - VNC: set `VNC_PASSWORD` on first run (display `:1` = port `5901`).
   Existing `~/.vnc/xstartup` and password are kept on re-runs.
+  Ubuntu 22.04+ TigerVNC ships no vncpasswd; the script borrows TightVNC's compatible one automatically.
 - Tailscale: set `TAILSCALE_AUTH_KEY` (ephemeral, reusable) or run
   `tailscale up` manually afterwards.

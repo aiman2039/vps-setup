@@ -2,6 +2,8 @@
 # 06-vnc: install TigerVNC server + systemd service. Idempotent.
 # Requires a desktop already installed and user from 01-user.sh.
 # Existing ~/.vnc/xstartup and password are kept unless forced.
+# NOTE: Ubuntu 22.04+ TigerVNC ships no vncpasswd, so tightvncserver is
+# installed on demand for its compatible vncpasswd (server stays TigerVNC).
 #
 # Env:
 #   VNC_USER (NEW_USER/agent)  VNC_DISPLAY (1)  VNC_GEOMETRY (1920x1080)
@@ -32,7 +34,19 @@ install -d -o "$VNC_USER" -g "$VNC_USER" -m 755 "$home/.vnc"
 if [[ -f "$home/.vnc/passwd" && "$VNC_UPDATE_PASSWORD" != "true" ]]; then
   log "VNC password already set (VNC_UPDATE_PASSWORD=true to change)"
 elif [[ -n "$VNC_PASSWORD" ]]; then
-  printf '%s' "$VNC_PASSWORD" | su -s /bin/bash "$VNC_USER" -c 'vncpasswd -f > "$HOME/.vnc/passwd"'
+  # Ubuntu 22.04+/Debian 12+ TigerVNC ships no password tool; TightVNC's
+  # vncpasswd writes the same standard file, so borrow it when needed.
+  passwd_tool="$(resolve_vnc_passwd_tool || true)"
+  if [[ -z "$passwd_tool" ]]; then
+    log "no vncpasswd/tigervncpasswd found; installing tightvncserver for its vncpasswd"
+    apt_install tightvncserver
+    pin_alternative vncserver /usr/bin/tigervncserver
+    pin_alternative vncconfig /usr/bin/tigervncconfig
+    pin_alternative Xvnc /usr/bin/Xtigervnc
+    passwd_tool="$(resolve_vnc_passwd_tool || true)"
+  fi
+  [[ -n "$passwd_tool" ]] || die "no VNC password tool available (tried tightvncserver; is the universe repo enabled?)"
+  printf '%s' "$VNC_PASSWORD" | su -s /bin/bash "$VNC_USER" -c "$passwd_tool -f > \"\$HOME/.vnc/passwd\""
   chmod 600 "$home/.vnc/passwd"
   chown "$VNC_USER:$VNC_USER" "$home/.vnc/passwd"
   log "VNC password set for '$VNC_USER'"
@@ -67,6 +81,11 @@ fi
 localhost_flag="no"
 if [[ "$VNC_LOCALHOST" == "yes" ]]; then localhost_flag="yes"; fi
 
+# Prefer the absolute TigerVNC binary: /usr/bin/vncserver is a Debian
+# alternative that other VNC packages (e.g. tightvncserver) can flip.
+vnc_server_bin=/usr/bin/vncserver
+if [[ -x /usr/bin/tigervncserver ]]; then vnc_server_bin=/usr/bin/tigervncserver; fi
+
 unit=/etc/systemd/system/vncserver@.service
 tmp=$(mktemp)
 {
@@ -81,9 +100,9 @@ Type=simple
 User=${VNC_USER}
 PAMName=login
 PIDFile=${home}/.vnc/%H:%i.pid
-ExecStartPre=/bin/sh -c '/usr/bin/vncserver -kill :%i > /dev/null 2>&1 || :'
-ExecStart=/usr/bin/vncserver :%i -geometry ${VNC_GEOMETRY} -depth ${VNC_DEPTH} -localhost ${localhost_flag}
-ExecStop=/usr/bin/vncserver -kill :%i
+ExecStartPre=/bin/sh -c '${vnc_server_bin} -kill :%i > /dev/null 2>&1 || :'
+ExecStart=${vnc_server_bin} :%i -geometry ${VNC_GEOMETRY} -depth ${VNC_DEPTH} -localhost ${localhost_flag}
+ExecStop=${vnc_server_bin} -kill :%i
 Restart=on-failure
 RestartSec=3
 

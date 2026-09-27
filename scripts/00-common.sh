@@ -72,3 +72,28 @@ managed_header() {
 user_home() {
   getent passwd "$1" | cut -d: -f6
 }
+
+# resolve_vnc_passwd_tool: print the VNC password tool to use (vncpasswd or
+# tigervncpasswd); prints nothing and returns 1 when neither is installed.
+# (Ubuntu 22.04+/Debian 12+ TigerVNC ships no password tool at all.)
+resolve_vnc_passwd_tool() {
+  if command -v vncpasswd >/dev/null 2>&1; then printf 'vncpasswd'; return 0; fi
+  if command -v tigervncpasswd >/dev/null 2>&1; then printf 'tigervncpasswd'; return 0; fi
+  return 1
+}
+
+# pin_alternative <link> <path>: force a Debian alternative back to <path>
+# when <path> is a registered choice; no-op when the link is unmanaged.
+pin_alternative() {
+  local link="$1" want="$2" current
+  if ! command -v update-alternatives >/dev/null 2>&1; then return 0; fi
+  if ! update-alternatives --query "$link" 2>/dev/null | grep -q "^Alternative: $want$"; then return 0; fi
+  current="$(update-alternatives --query "$link" 2>/dev/null | sed -n 's/^Value: //p')"
+  if [[ "$current" != "$want" ]]; then
+    if update-alternatives --set "$link" "$want" >/dev/null 2>&1; then
+      log "$link pinned to $want"
+    else
+      warn "could not pin $link to $want"
+    fi
+  fi
+}

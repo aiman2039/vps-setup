@@ -1,0 +1,3 @@
+- Always be brief and concise, if the user need more info they will ask for you to elaborate more
+- Always opt first for known popular packages and dont reinvent the wheel
+- Always ask for specific permission and show what you want to chage in AGENTS.md

@@ -28,7 +28,7 @@ else
 fi
 
 # 3. step selection wiring
-expected="00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker 11-lockdown 12-nvm 13-notify 14-opencode 15-pi 16-gh"
+expected="00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker 11-lockdown 12-nvm 13-notify 14-opencode 15-pi 16-gh 17-agents-md"
 if [[ "$(./setup.sh --list | tr '\n' ' ' | sed 's/ $//')" == "$expected" ]]; then
   ok "--list order"
 else
@@ -299,12 +299,71 @@ if ! grep -q 'set-environment -g COLORTERM' "$t5" \
 else
   no "05-tmux scoped truecolor"
 fi
+# 11b. sshd accepts COLORTERM (else tmux propagation has nothing to carry),
+# without dropping Ubuntu's default LANG/LC_* forwarding (first-value-wins).
+if grep -qF 'AcceptEnv LANG LC_* COLORTERM' scripts/02-ssh-only.sh; then
+  ok "02-ssh-only accepts COLORTERM"
+else
+  no "02-ssh-only accepts COLORTERM"
+fi
+# 11c. extra RGB terms are provisionable via env, not a hand-edit of the
+# managed tmux.conf.
+if grep -q 'TMUX_EXTRA_RGB_TERMS' "$t5" \
+  && grep -qF 'terminal-features ",%s:RGB' "$t5"; then
+  ok "05-tmux extra RGB terms"
+else
+  no "05-tmux extra RGB terms"
+fi
 if grep -q 'infocmp xterm-256color' scripts/09-zsh.sh \
   && grep -q 'client_termfeatures' scripts/09-zsh.sh \
   && grep -q 'mosh-server' scripts/09-zsh.sh; then
   ok "09-zsh truecolor sanity template"
 else
   no "09-zsh truecolor sanity template"
+fi
+
+# 12. 17-agents-md links every agent dir to one canonical file
+a17="scripts/17-agents-md.sh"
+if grep -q '\.codex/AGENTS.md' "$a17" \
+  && grep -q '\.grok/AGENTS.md' "$a17" \
+  && grep -q '\.muse/AGENTS.md' "$a17" \
+  && grep -q '\.pi/AGENTS.md' "$a17" \
+  && grep -q '\.opencode/AGENTS.md' "$a17" \
+  && grep -q '\.claude/AGENTS.md' "$a17" \
+  && grep -q '\.claude/CLAUDE.md' "$a17" \
+  && grep -q '\.config/opencode/AGENTS.md' "$a17"; then
+  ok "17-agents-md covers all agent dirs"
+else
+  no "17-agents-md covers all agent dirs"
+fi
+# missing source fails fast, before require_root (portable)
+if AGENTS_SOURCE="/nonexistent-agents-md-$$" bash "$a17" >/dev/null 2>&1; then
+  no "17-agents-md fails without source"
+else
+  ok "17-agents-md fails without source"
+fi
+
+# 13. vnc passwd tool resolution (portable: stub PATH, no root/apt)
+vbin="$(mktemp -d)"
+vbash="$(command -v bash)"
+r1="$(PATH="$vbin" "$vbash" -c 'source scripts/00-common.sh; resolve_vnc_passwd_tool || true' 2>/dev/null)"
+printf '#!/bin/sh\nexit 0\n' > "$vbin/tigervncpasswd"; chmod +x "$vbin/tigervncpasswd"
+r2="$(PATH="$vbin" "$vbash" -c 'source scripts/00-common.sh; resolve_vnc_passwd_tool || true' 2>/dev/null)"
+printf '#!/bin/sh\nexit 0\n' > "$vbin/vncpasswd"; chmod +x "$vbin/vncpasswd"
+r3="$(PATH="$vbin" "$vbash" -c 'source scripts/00-common.sh; resolve_vnc_passwd_tool || true' 2>/dev/null)"
+rm -rf "$vbin"
+if [[ -z "$r1" && "$r2" == "tigervncpasswd" && "$r3" == "vncpasswd" ]]; then
+  ok "resolve_vnc_passwd_tool prefers vncpasswd"
+else
+  no "resolve_vnc_passwd_tool prefers vncpasswd"
+fi
+# 13b. 06-vnc falls back to tightvncserver's vncpasswd and pins TigerVNC
+if grep -q 'tightvncserver' scripts/06-vnc.sh \
+  && grep -q '/usr/bin/tigervncserver' scripts/06-vnc.sh \
+  && grep -q 'pin_alternative' scripts/00-common.sh; then
+  ok "06-vnc jammy passwd fallback wiring"
+else
+  no "06-vnc jammy passwd fallback wiring"
 fi
 
 printf 'done: %d pass, %d fail, %d skip\n' "$pass" "$fail" "$skip"
