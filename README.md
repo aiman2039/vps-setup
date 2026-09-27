@@ -33,6 +33,7 @@ Preview: `./setup.sh --dry-run --only user,vnc`. List: `./setup.sh --list`.
 | 08-tailscale | Tailscale | official apt repo, install, optional `tailscale up` |
 | 09-zsh | zsh + oh-my-zsh | installs zsh, sets login shell, oh-my-zsh with theme/plugins (minimal `~/.zshrc` fallback) |
 | 10-docker | Docker Engine | official apt repo, engine + compose plugins, user in `docker` group |
+| 11-lockdown | tailnet-only firewall | off by default; ufw allows tailscale0, denies public (needs `tailscale up`) |
 
 Order matters: user is created before sshd is hardened, so you can't lock
 yourself out. All config defaults live in [.env.example](.env.example).

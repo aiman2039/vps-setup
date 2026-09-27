@@ -28,7 +28,7 @@ else
 fi
 
 # 3. step selection wiring
-expected="00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker"
+expected="00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker 11-lockdown"
 if [[ "$(./setup.sh --list | tr '\n' ' ' | sed 's/ $//')" == "$expected" ]]; then
   ok "--list order"
 else
@@ -86,6 +86,13 @@ if [[ "$(SUDO_USER=bob bash -c 'source scripts/00-common.sh; printf %s "$DEFAULT
   ok "DEFAULT_USER from SUDO_USER"
 else
   no "DEFAULT_USER from SUDO_USER"
+fi
+
+# 7. lockdown is a no-op unless enabled (portable: exits before require_root)
+if env -u LOCKDOWN_ENABLE bash scripts/11-lockdown.sh >/dev/null 2>&1; then
+  ok "11-lockdown disabled by default"
+else
+  no "11-lockdown disabled by default"
 fi
 
 printf 'done: %d pass, %d fail, %d skip\n' "$pass" "$fail" "$skip"
