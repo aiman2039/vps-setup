@@ -102,6 +102,21 @@ else
   no "13-notify skipped without NTFY_TOPIC"
 fi
 
+# 8b. 13-notify loads the repo .env on direct runs (no setup.sh).
+# Portable: dies at require_root/id check (before writing anything), never
+# at the topic gate. NOTIFY_USER points nowhere so root CI can't install.
+tdir="$(mktemp -d)"
+mkdir -p "$tdir/repo/scripts"
+cp scripts/00-common.sh scripts/13-notify.sh "$tdir/repo/scripts/"
+printf 'NTFY_TOPIC=t-Direct1\n' > "$tdir/repo/.env"
+dout="$(NOTIFY_USER="vpstest-nonexistent-$$" bash "$tdir/repo/scripts/13-notify.sh" </dev/null 2>&1)" || true
+if [[ "$dout" != *"NTFY_TOPIC not set"* ]]; then
+  ok "13-notify reads .env on direct run"
+else
+  no "13-notify reads .env on direct run"
+fi
+rm -rf "$tdir"
+
 # 9. notify-hooks.py merges are correct and idempotent (portable: needs python3)
 if command -v python3 >/dev/null 2>&1; then
   tmp="$(mktemp -d)"

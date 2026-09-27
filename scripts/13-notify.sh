@@ -25,6 +25,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/00-common.sh"
 
+# Load repo .env for direct runs (setup.sh already loads it when run that
+# way; sourcing twice is harmless since these are plain assignments).
+if [[ -f "$VPS_SETUP_ROOT/.env" ]]; then
+  set -a; source "$VPS_SETUP_ROOT/.env"; set +a
+fi
+
 NEW_USER="${NEW_USER:-$DEFAULT_USER}"
 NOTIFY_USER="${NOTIFY_USER:-$NEW_USER}"
 NOTIFY_TOOLS="${NOTIFY_TOOLS:-all}"
@@ -34,7 +40,7 @@ MACHINE_NAME="${MACHINE_NAME:-}"
 NTFY_CLICK_URL="${NTFY_CLICK_URL:-}"
 
 if [[ -z "$NTFY_TOPIC" ]]; then
-  warn "NTFY_TOPIC not set; skipping notifications (set it in .env to enable)"
+  warn "NTFY_TOPIC not set; skipping (set NTFY_TOPIC in .env next to setup.sh)"
   exit 0
 fi
 
