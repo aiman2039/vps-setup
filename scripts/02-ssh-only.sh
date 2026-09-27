@@ -20,7 +20,16 @@ for f in /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys; do
   if [[ -s "$f" ]]; then have_key=true; break; fi
 done
 if [[ "$have_key" != "true" && "$SSH_ALLOW_NO_KEYS" != "true" ]]; then
-  die "no authorized_keys found; run 01-user.sh first or set SSH_ALLOW_NO_KEYS=true"
+  die "no authorized_keys found - refusing to disable password auth (lockout risk).
+
+Install a key first, then re-run this script. From your local machine:
+  ssh-keygen -t ed25519            # if you have no key yet
+  ssh-copy-id root@YOUR_VPS        # or: ssh-copy-id <user>@YOUR_VPS
+
+Or on the VPS (key is copied to the new user by 01-user.sh):
+  AUTHORIZED_KEY='ssh-ed25519 AAAA...' sudo -E ./scripts/01-user.sh
+
+Last resort (dangerous, can lock you out): SSH_ALLOW_NO_KEYS=true"
 fi
 
 if [[ ! -f /etc/ssh/sshd_config.bak.vps-setup ]]; then

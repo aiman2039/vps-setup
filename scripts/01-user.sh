@@ -82,6 +82,33 @@ if [[ -n "$AUTHORIZED_KEYS_FILE" ]]; then
   while IFS= read -r line || [[ -n "$line" ]]; do add_key "$line"; done < "$AUTHORIZED_KEYS_FILE"
 fi
 
+# SSH key step: if no key ended up installed, explain how to add one and
+# (on an interactive terminal) offer to paste one right now.
+key_count="$(grep -c . "$home/.ssh/authorized_keys" || true)"
+if [[ "${key_count:-0}" -eq 0 ]]; then
+  warn "no SSH keys installed for '$NEW_USER'."
+  cat >&2 <<'EOF'
+[vps-setup] To add one, re-run with a key:
+[vps-setup]   AUTHORIZED_KEY="$(cat ~/.ssh/id_ed25519.pub)" sudo -E ./scripts/01-user.sh
+[vps-setup] or copy a key from your local machine, then re-run
+[vps-setup] (01-user.sh copies root's keys to the new user):
+[vps-setup]   ssh-keygen -t ed25519            # if you have no key yet
+[vps-setup]   ssh-copy-id root@YOUR_VPS
+[vps-setup] Note: 02-ssh-only.sh refuses to disable password auth until a key exists.
+EOF
+  if [[ -t 0 ]]; then
+    pasted_key=""
+    read -r -p "[vps-setup] Paste an SSH public key now (Enter to skip): " pasted_key || true
+    if [[ -n "$pasted_key" ]]; then
+      if [[ "$pasted_key" =~ ^(ssh-|ecdsa-|sk-)[a-z0-9-]+[[:space:]]+[A-Za-z0-9+/=]+ ]]; then
+        add_key "$pasted_key"
+      else
+        warn "that does not look like an SSH public key; skipped (re-run to retry)"
+      fi
+    fi
+  fi
+fi
+
 if [[ -n "$USER_PASSWORD" ]]; then
   printf '%s:%s' "$NEW_USER" "$USER_PASSWORD" | chpasswd
   log "password set for '$NEW_USER'"

@@ -15,6 +15,7 @@ sudo ./setup.sh
 
 Run one step: `sudo ./scripts/01-user.sh`.
 Partial runs: `sudo ./setup.sh --only user,tmux`, `sudo ./setup.sh --skip vnc`.
+Tests: `./tests/run.sh` (portable checks always run; user/key checks need root on Linux).
 Preview: `./setup.sh --dry-run --only user,vnc`. List: `./setup.sh --list`.
 
 ## Steps (run order)
