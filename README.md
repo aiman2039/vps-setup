@@ -21,6 +21,7 @@ Preview: `./setup.sh --dry-run --only user,vnc`. List: `./setup.sh --list`.
 
 | Step | Script | What it does |
 |------|--------|--------------|
+| 00-prep | base packages + upgrade | git, curl, sudo, ssh server, ufw (installed, not enabled), dns/htop/vim basics |
 | 01-user | non-root user + sudo + ssh keys | creates `$NEW_USER`, copies root keys, optional `AUTHORIZED_KEY` |
 | 02-ssh-only | key-only sshd | disables password auth (lockout guard: needs an authorized key first) |
 | 03-termius | Termius SSH client | snap (`termius-app`) by default, `.deb` via `TERMIUS_METHOD=deb` |

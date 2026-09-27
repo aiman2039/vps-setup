@@ -1,0 +1,8 @@
+alias c="clear"
+alias grep="grep --color"
+alias lt="lst -lrtha"
+alias gs="git status"
+alias rm="rm -i"
+alias cp="cp -i"
+alias s="source"
+alias h="history"
