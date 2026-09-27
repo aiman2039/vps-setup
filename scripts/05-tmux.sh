@@ -34,6 +34,7 @@ set -g renumber-windows on
 # Server option. Pi checks `tmux show -gv extended-keys`. csi-u is tmux 3.5+; -q no-ops on 3.2.
 set -s extended-keys on
 set -gq extended-keys-format csi-u
+set -g mouse on
 EOF
   } > "$tmp"
   if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
