@@ -20,10 +20,18 @@ else
     managed_header "05-tmux"
     cat <<'EOF'
 set -g default-terminal "tmux-256color"
-# Pi enables truecolor inside tmux only when COLORTERM is truecolor/24bit.
-set-environment -g COLORTERM truecolor
-set -ga terminal-features ",*:RGB:usstyle:sync:extkeys:focus"
-set -ga terminal-overrides ",*:Tc"
+# Propagate the client's real COLORTERM into new panes; never force it.
+# (mosh clients claim truecolor but strip 24-bit sequences.)
+set -ga update-environment " COLORTERM"
+# Non-RGB features for all clients; RGB only for terminals that really do
+# truecolor. Generic xterm* is deliberately excluded: Terminus-over-mosh
+# declares xterm, and mosh cannot transport 24-bit color. Direct-SSH users
+# with truecolor xterms can append their TERM here.
+set -ga terminal-features ",*:usstyle:sync:extkeys:focus"
+set -ga terminal-features ",xterm-ghostty:RGB"
+set -ga terminal-features ",xterm-kitty:RGB"
+set -ga terminal-features ",wezterm:RGB"
+set -ga terminal-features ",foot:RGB"
 set -s escape-time 0
 set -s focus-events on
 set -g mouse on

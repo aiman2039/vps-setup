@@ -9,7 +9,7 @@ set softtabstop=2
 set shiftwidth=2
 set expandtab
 
-if has("termguicolors")
+if has('termguicolors') && $COLORTERM == 'truecolor'
   set termguicolors
 endif
 

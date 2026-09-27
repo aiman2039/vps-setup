@@ -287,5 +287,25 @@ else
 fi
 rm -rf "$ntmp"
 
+# 11. tmux/zsh truecolor guards: never force truecolor (mosh strips RGB),
+# RGB allowlist is scoped to known-truecolor terminals.
+t5="scripts/05-tmux.sh"
+if ! grep -q 'set-environment -g COLORTERM' "$t5" \
+  && ! grep -q 'terminal-overrides ",\*:Tc"' "$t5" \
+  && ! grep -q 'terminal-features ",\*:RGB' "$t5" \
+  && grep -q 'update-environment " COLORTERM"' "$t5" \
+  && grep -q 'terminal-features ",xterm-ghostty:RGB"' "$t5"; then
+  ok "05-tmux scoped truecolor"
+else
+  no "05-tmux scoped truecolor"
+fi
+if grep -q 'infocmp xterm-256color' scripts/09-zsh.sh \
+  && grep -q 'client_termfeatures' scripts/09-zsh.sh \
+  && grep -q 'mosh-server' scripts/09-zsh.sh; then
+  ok "09-zsh truecolor sanity template"
+else
+  no "09-zsh truecolor sanity template"
+fi
+
 printf 'done: %d pass, %d fail, %d skip\n' "$pass" "$fail" "$skip"
 [[ "$fail" -eq 0 ]]

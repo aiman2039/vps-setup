@@ -51,6 +51,40 @@ ensure_zshrc() {
   {
     managed_header "09-zsh"
     cat <<'EOF'
+# --- truecolor sanity -------------------------------------------------
+# Minimal clients (Terminus over mosh) declare plain `xterm` while claiming
+# COLORTERM=truecolor, which makes full-color apps emit sequences the
+# transport mangles. Repair TERM and drop false truecolor claims.
+# Only outside tmux/screen: inside, the multiplexer owns TERM.
+if [[ -z "${TMUX:-}" && -z "${STY:-}" && "$TERM" == "xterm" ]] \
+    && command -v infocmp >/dev/null 2>&1 \
+    && infocmp xterm-256color >/dev/null 2>&1; then
+  export TERM=xterm-256color
+fi
+
+# mosh cannot transport 24-bit color: drop the truecolor claim when the path
+# to the screen can't honor it, so apps (pi, opencode, vim) use 256 colors.
+if [[ -n "${TMUX:-}" ]] && command -v tmux >/dev/null 2>&1; then
+  # Inside tmux: trust tmux's per-client capability detection.
+  _tc_features=$(tmux display-message -p '#{client_termfeatures}' 2>/dev/null)
+  if [[ -n "$_tc_features" && "$_tc_features" != *RGB* ]]; then
+    unset COLORTERM
+  fi
+  unset _tc_features
+else
+  # Outside tmux: walk ancestors; mosh-server anywhere above us => no RGB.
+  _tc_pid=$$ _tc_mosh=0
+  while (( _tc_pid > 1 )); do
+    _tc_comm=$(ps -o comm= -p "$_tc_pid" 2>/dev/null) || break
+    if [[ "$_tc_comm" == *mosh-server* ]]; then _tc_mosh=1; break; fi
+    _tc_pid=$(ps -o ppid= -p "$_tc_pid" 2>/dev/null | tr -d ' ') || break
+    [[ -z "$_tc_pid" ]] && break
+  done
+  (( _tc_mosh )) && unset COLORTERM
+  unset _tc_pid _tc_mosh _tc_comm
+fi
+# --- end truecolor sanity ---------------------------------------------
+
 HISTFILE=~/.histfile
 HISTSIZE=5000
 SAVEHIST=5000
