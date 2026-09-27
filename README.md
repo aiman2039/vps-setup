@@ -1,0 +1,45 @@
+# vps-setup
+
+Idempotent setup scripts for an Ubuntu 22.04 VPS (AI agent box with desktop).
+Each script is safe to re-run; re-running converges to the same state.
+
+## Quickstart
+
+```sh
+scp -r . root@YOUR_VPS:/root/vps-setup
+ssh root@YOUR_VPS
+cd /root/vps-setup
+cp .env.example .env   # set VNC_PASSWORD, TAILSCALE_AUTH_KEY, ...
+sudo ./setup.sh
+```
+
+Run one step: `sudo ./scripts/01-user.sh`.
+Partial runs: `sudo ./setup.sh --only user,tmux`, `sudo ./setup.sh --skip vnc`.
+Preview: `./setup.sh --dry-run --only user,vnc`. List: `./setup.sh --list`.
+
+## Steps (run order)
+
+| Step | Script | What it does |
+|------|--------|--------------|
+| 01-user | non-root user + sudo + ssh keys | creates `$NEW_USER`, copies root keys, optional `AUTHORIZED_KEY` |
+| 02-ssh-only | key-only sshd | disables password auth (lockout guard: needs an authorized key first) |
+| 03-termius | Termius SSH client | snap (`termius-app`) by default, `.deb` via `TERMIUS_METHOD=deb` |
+| 04-mosh | mosh | installs mosh, opens UDP `60000:61000` in ufw |
+| 05-tmux | tmux | installs tmux + managed `/etc/tmux.conf` |
+| 06-vnc | TigerVNC | installs server, `~/.vnc/xstartup` (auto-detects desktop), `vncserver@:1` service |
+| 07-rust | Rust via rustup | installs stable toolchain for `$RUST_USER` |
+| 08-tailscale | Tailscale | official apt repo, install, optional `tailscale up` |
+| 09-zsh | zsh | installs zsh, sets it as login shell, minimal `~/.zshrc` if none |
+| 10-docker | Docker Engine | official apt repo, engine + compose plugins, user in `docker` group |
+
+Order matters: user is created before sshd is hardened, so you can't lock
+yourself out. All config defaults live in [.env.example](.env.example).
+
+## Notes
+
+- VNC: set `VNC_PASSWORD` on first run (display `:1` = port `5901`).
+  Existing `~/.vnc/xstartup` and password are kept on re-runs.
+- Tailscale: set `TAILSCALE_AUTH_KEY` (ephemeral, reusable) or run
+  `tailscale up` manually afterwards.
+- Termius installs from the snap store by default; use `TERMIUS_METHOD=deb`
+  for the `.deb` from termius.com (includes the chrome-sandbox SUID fix).
