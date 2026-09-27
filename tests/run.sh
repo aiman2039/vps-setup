@@ -226,6 +226,7 @@ class H(http.server.BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", 0))
         with open(sys.argv[2], "w") as f:
             json.dump({"path": self.path, "title": self.headers.get("Title"),
+                       "click": self.headers.get("Click"),
                        "body": self.rfile.read(n).decode()}, f)
         self.send_response(200)
         self.end_headers()
@@ -236,24 +237,38 @@ EOF
   port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])' 2>/dev/null)" || port=""
   if [[ -z "$port" ]]; then
     sk "ntfy-wait posts to topic (loopback bind unavailable)"
+    sk "ntfy-wait machine tag + click (loopback bind unavailable)"
   else
     python3 "$ntmp/stub.py" "$port" "$ntmp/got.json" & srv=$!
     sleep 1
     HOME="$ntmp" NTFY_SERVER="http://127.0.0.1:$port" NTFY_TOPIC="t-Stub9" \
       bash scripts/ntfy-wait.sh codex "build done" >/dev/null 2>&1
-    kill "$srv" 2>/dev/null || true
-    wait "$srv" 2>/dev/null || true
     if [[ -f "$ntmp/got.json" ]] \
       && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['path'])")" == "/t-Stub9" ]] \
       && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['body'])")" == "build done" ]] \
-      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "codex waiting" ]]; then
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "codex waiting" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['click'])")" == "None" ]]; then
       ok "ntfy-wait posts to topic"
     else
       no "ntfy-wait posts to topic"
     fi
+    rm -f "$ntmp/got.json"
+    HOME="$ntmp" NTFY_SERVER="http://127.0.0.1:$port" NTFY_TOPIC="t-Stub9" \
+      MACHINE_NAME="testbox" NTFY_CLICK_URL="ssh://agent@10.0.0.9" \
+      bash scripts/ntfy-wait.sh codex "build done" >/dev/null 2>&1
+    kill "$srv" 2>/dev/null || true
+    wait "$srv" 2>/dev/null || true
+    if [[ -f "$ntmp/got.json" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "[testbox] codex waiting" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['click'])")" == "ssh://agent@10.0.0.9" ]]; then
+      ok "ntfy-wait machine tag + click"
+    else
+      no "ntfy-wait machine tag + click"
+    fi
   fi
 else
   sk "ntfy-wait posts to topic (needs python3 + curl)"
+  sk "ntfy-wait machine tag + click (needs python3 + curl)"
 fi
 rm -rf "$ntmp"
 

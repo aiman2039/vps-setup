@@ -11,6 +11,8 @@
 #   server  $NTFY_SERVER, else ~/.config/ntfy-wait/server (default https://ntfy.sh)
 #   auth    $NTFY_TOKEN (bearer), else $NTFY_USER/$NTFY_PASSWORD,
 #           else ~/.config/ntfy-wait/auth ("Bearer <token>" or "user:pass")
+#   machine $MACHINE_NAME, else ~/.config/ntfy-wait/machine (empty = no tag)
+#   click   $NTFY_CLICK_URL, else ~/.config/ntfy-wait/click (empty = no tap action)
 set -euo pipefail
 
 agent="${1:-agent}"
@@ -24,8 +26,22 @@ server="${server:-https://ntfy.sh}"
 
 [[ -z "$topic" ]] && exit 0 # not configured; stay silent so hooks never fail
 
+machine="${MACHINE_NAME:-$(cat "$conf/machine" 2>/dev/null || true)}"
+title="$agent waiting"
+[[ -n "$machine" ]] && title="[$machine] $agent waiting"
+
 args=(-s -o /dev/null --max-time 8
-  -H "Title: $agent waiting" -H "Tags: robot")
+  -H "Title: $title" -H "Tags: robot")
+click="${NTFY_CLICK_URL:-$(cat "$conf/click" 2>/dev/null || true)}"
+click="${click//$'\r'/}"
+click="${click//$'\n'/}" # header-safe: strip CR/LF
+if [[ -z "$click" ]]; then
+  :
+elif [[ "$click" == *"://"* ]]; then
+  args+=(-H "Click: $click")
+else
+  printf 'ntfy-wait: ignoring malformed NTFY_CLICK_URL (want scheme://...)\n' >&2
+fi
 if [[ -n "${NTFY_TOKEN:-}" ]]; then
   args+=(-H "Authorization: Bearer $NTFY_TOKEN")
 elif [[ -n "${NTFY_USER:-}" && -n "${NTFY_PASSWORD:-}" ]]; then

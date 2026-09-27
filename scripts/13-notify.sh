@@ -18,6 +18,8 @@
 #   NTFY_TOPIC (required; unset/empty = step is skipped)
 #   NTFY_SERVER (https://ntfy.sh)
 #   NTFY_TOKEN (optional bearer token) or NTFY_USER + NTFY_PASSWORD
+#   MACHINE_NAME ("" = no tag; e.g. vps1) -> "[vps1] codex waiting" titles
+#   NTFY_CLICK_URL ("" = no tap action; e.g. ssh://agent@100.x.y.z opens Termius)
 #   NOTIFY_USER (NEW_USER)  NOTIFY_TOOLS (all, or csv subset of the list above)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,6 +30,8 @@ NOTIFY_USER="${NOTIFY_USER:-$NEW_USER}"
 NOTIFY_TOOLS="${NOTIFY_TOOLS:-all}"
 NTFY_TOPIC="${NTFY_TOPIC:-}"
 NTFY_SERVER="${NTFY_SERVER:-https://ntfy.sh}"
+MACHINE_NAME="${MACHINE_NAME:-}"
+NTFY_CLICK_URL="${NTFY_CLICK_URL:-}"
 
 if [[ -z "$NTFY_TOPIC" ]]; then
   warn "NTFY_TOPIC not set; skipping notifications (set it in .env to enable)"
@@ -100,6 +104,19 @@ elif [[ -f "$conf/auth" ]]; then
   rm -f "$conf/auth" # creds removed from env: converge, don't linger
   log "removed stale $conf/auth"
 fi
+conf_value() { # conf_value <name> <value>: write file, or remove when unset
+  local name="$1" value="$2"
+  if [[ -n "$value" ]]; then
+    printf '%s' "$value" > "$conf/$name.tmp"
+    install -o "$NOTIFY_USER" -g "$NOTIFY_USER" -m 644 "$conf/$name.tmp" "$conf/$name"
+    rm -f "$conf/$name.tmp"
+  elif [[ -f "$conf/$name" ]]; then
+    rm -f "$conf/$name"
+    log "removed stale $conf/$name"
+  fi
+}
+conf_value machine "$MACHINE_NAME"
+conf_value click "$NTFY_CLICK_URL"
 log "ntfy target: $NTFY_SERVER/$NTFY_TOPIC"
 
 if wanted claude; then
