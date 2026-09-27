@@ -9,7 +9,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-STEPS=(00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker 11-lockdown)
+STEPS=(00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker 11-lockdown 12-nvm 13-notify 14-opencode 15-pi)
 
 usage() {
   cat <<EOF

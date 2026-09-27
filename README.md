@@ -34,6 +34,10 @@ Preview: `./setup.sh --dry-run --only user,vnc`. List: `./setup.sh --list`.
 | 09-zsh | zsh + oh-my-zsh | installs zsh, sets login shell, oh-my-zsh with theme/plugins (minimal `~/.zshrc` fallback) |
 | 10-docker | Docker Engine | official apt repo, engine + compose plugins, user in `docker` group |
 | 11-lockdown | tailnet-only firewall | off by default; ufw allows tailscale0, denies public (needs `tailscale up`) |
+| 12-nvm | nvm + Node.js | installs nvm for user, Node LTS, loader in `.zshrc`/`.bashrc` |
+| 14-opencode | opencode agent | standalone binary via official installer (`~/.opencode/bin`) |
+| 15-pi | Pi agent | npm global install (needs node from step 12) |
+| 13-notify | ntfy agent pings | skipped unless `NTFY_TOPIC` set; hooks claude/codex/muse/opencode/grok/pi/tmux to ping your phone when waiting |
 
 Order matters: user is created before sshd is hardened, so you can't lock
 yourself out. All config defaults live in [.env.example](.env.example).

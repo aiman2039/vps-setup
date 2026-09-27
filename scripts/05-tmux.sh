@@ -20,12 +20,20 @@ else
     managed_header "05-tmux"
     cat <<'EOF'
 set -g default-terminal "tmux-256color"
-set -ga terminal-overrides ",xterm-256color:Tc"
+# Pi enables truecolor inside tmux only when COLORTERM is truecolor/24bit.
+set-environment -g COLORTERM truecolor
+set -ga terminal-features ",*:RGB:usstyle:sync:extkeys:focus"
+set -ga terminal-overrides ",*:Tc"
+set -s escape-time 0
+set -s focus-events on
 set -g mouse on
 set -g history-limit 50000
 set -g base-index 1
 setw -g pane-base-index 1
 set -g renumber-windows on
+# Server option. Pi checks `tmux show -gv extended-keys`. csi-u is tmux 3.5+; -q no-ops on 3.2.
+set -s extended-keys on
+set -gq extended-keys-format csi-u
 EOF
   } > "$tmp"
   if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
