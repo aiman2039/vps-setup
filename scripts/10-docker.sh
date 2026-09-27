@@ -6,7 +6,7 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/00-common.sh"
 
-NEW_USER="${NEW_USER:-agent}"
+NEW_USER="${NEW_USER:-$DEFAULT_USER}"
 DOCKER_USER="${DOCKER_USER:-$NEW_USER}"
 DOCKER_ADD_USER_TO_GROUP="${DOCKER_ADD_USER_TO_GROUP:-true}"
 

@@ -6,6 +6,15 @@ set -euo pipefail
 VPS_SETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VPS_APT_STAMP="/var/lib/vps-setup/apt-updated"
 
+# Default target user: whoever invoked sudo, else "agent".
+# (When run as root directly there is no invoking user, so be explicit
+# via NEW_USER in that case.)
+if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]]; then
+  DEFAULT_USER="$SUDO_USER"
+else
+  DEFAULT_USER="agent"
+fi
+
 log()  { printf '[vps-setup] %s\n' "$*"; }
 warn() { printf '[vps-setup] WARNING: %s\n' "$*" >&2; }
 die()  { printf '[vps-setup] ERROR: %s\n' "$*" >&2; exit 1; }

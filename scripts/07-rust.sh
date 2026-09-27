@@ -8,7 +8,7 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/00-common.sh"
 
-NEW_USER="${NEW_USER:-agent}"
+NEW_USER="${NEW_USER:-$DEFAULT_USER}"
 RUST_USER="${RUST_USER:-$NEW_USER}"
 RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-stable}"
 RUSTUP_PROFILE="${RUSTUP_PROFILE:-default}"

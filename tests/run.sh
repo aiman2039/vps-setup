@@ -28,7 +28,7 @@ else
 fi
 
 # 3. step selection wiring
-expected="00-prep 01-user 02-ssh-only 03-termius 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker"
+expected="00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker"
 if [[ "$(./setup.sh --list | tr '\n' ' ' | sed 's/ $//')" == "$expected" ]]; then
   ok "--list order"
 else
@@ -65,6 +65,27 @@ else
   if [[ "$(grep -c . "$home/.ssh/authorized_keys")" -eq 1 ]]; then ok "01-user key install idempotent"; else no "01-user key install idempotent"; fi
   cleanup
   trap - EXIT
+fi
+
+# 5. [root] 00-dns-fix no-op path (only when DNS already works)
+if [[ "${EUID:-$(id -u)}" -eq 0 ]] && command -v useradd >/dev/null 2>&1 \
+  && getent hosts github.com >/dev/null 2>&1; then
+  if bash scripts/00-dns-fix.sh >/dev/null 2>&1; then
+    ok "00-dns-fix no-op when DNS works"
+  else
+    no "00-dns-fix no-op when DNS works"
+  fi
+else
+  sk "00-dns-fix no-op (needs root on Linux with working DNS)"
+fi
+
+# 6. default target user follows the sudo-invoking user
+if [[ "$(SUDO_USER=bob bash -c 'source scripts/00-common.sh; printf %s "$DEFAULT_USER"')" == "bob" ]] \
+  && [[ "$(env -u SUDO_USER bash -c 'source scripts/00-common.sh; printf %s "$DEFAULT_USER"')" == "agent" ]] \
+  && [[ "$(SUDO_USER=root bash -c 'source scripts/00-common.sh; printf %s "$DEFAULT_USER"')" == "agent" ]]; then
+  ok "DEFAULT_USER from SUDO_USER"
+else
+  no "DEFAULT_USER from SUDO_USER"
 fi
 
 printf 'done: %d pass, %d fail, %d skip\n' "$pass" "$fail" "$skip"

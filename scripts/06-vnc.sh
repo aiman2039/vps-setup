@@ -10,7 +10,7 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/00-common.sh"
 
-NEW_USER="${NEW_USER:-agent}"
+NEW_USER="${NEW_USER:-$DEFAULT_USER}"
 VNC_USER="${VNC_USER:-$NEW_USER}"
 VNC_DISPLAY="${VNC_DISPLAY:-1}"
 VNC_GEOMETRY="${VNC_GEOMETRY:-1920x1080}"

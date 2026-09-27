@@ -8,7 +8,7 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/00-common.sh"
 
-NEW_USER="${NEW_USER:-agent}"
+NEW_USER="${NEW_USER:-$DEFAULT_USER}"
 NEW_USER_SHELL="${NEW_USER_SHELL:-/bin/bash}"
 NEW_USER_SUDO="${NEW_USER_SUDO:-true}"
 SUDO_NOPASSWD="${SUDO_NOPASSWD:-true}"
