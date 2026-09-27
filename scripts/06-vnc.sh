@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
-# 06-vnc: install TigerVNC server + systemd service. Idempotent.
-# Requires a desktop already installed and user from 01-user.sh.
-# Existing ~/.vnc/xstartup and password are kept unless forced.
-# NOTE: Ubuntu 22.04+ TigerVNC ships no vncpasswd, so tightvncserver is
-# installed on demand for its compatible vncpasswd (server stays TigerVNC).
-# GNOME/mutter usually dies under Xvnc; prefer VNC_SESSION=/usr/bin/startxfce4.
+# 06-vnc: install Xfce + TigerVNC and ensure the systemd service is ready.
+# Requires the user from 01-user.sh. Safe to re-run.
+# Custom xstartup files and existing passwords are kept unless forced.
 #
 # Env:
 #   VNC_USER (NEW_USER/agent)  VNC_DISPLAY (1)  VNC_GEOMETRY (1920x1080)
 #   VNC_DEPTH (24)  VNC_PASSWORD ("")  VNC_UPDATE_PASSWORD (false)
 #   VNC_LOCALHOST (no)  VNC_FORCE_XSTARTUP (false)
-#   VNC_SESSION ("") explicit session binary, e.g. /usr/bin/startxfce4
+#   VNC_SESSION (/usr/bin/startxfce4) explicit session binary, e.g. /usr/bin/startxfce4
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/00-common.sh"
 
@@ -24,20 +21,32 @@ VNC_UPDATE_PASSWORD="${VNC_UPDATE_PASSWORD:-false}"
 VNC_LOCALHOST="${VNC_LOCALHOST:-no}"
 VNC_FORCE_XSTARTUP="${VNC_FORCE_XSTARTUP:-false}"
 
+VNC_SESSION="${VNC_SESSION:-/usr/bin/startxfce4}"
+
 require_root
 id "$VNC_USER" >/dev/null 2>&1 || die "user '$VNC_USER' missing; run 01-user.sh first"
-if ! [[ "$VNC_DISPLAY" =~ ^[0-9]+$ ]]; then die "invalid VNC_DISPLAY='$VNC_DISPLAY'"; fi
+[[ "$VNC_DISPLAY" =~ ^[0-9]{1,5}$ ]] || die "invalid VNC_DISPLAY='$VNC_DISPLAY'"
+VNC_DISPLAY=$((10#$VNC_DISPLAY))
+(( VNC_DISPLAY >= 1 && VNC_DISPLAY <= 59635 )) || die "VNC_DISPLAY must be between 1 and 59635"
+[[ "$VNC_GEOMETRY" =~ ^[1-9][0-9]{0,4}x[1-9][0-9]{0,4}$ ]] || die "invalid VNC_GEOMETRY"
+case "$VNC_DEPTH" in 16|24|32) ;; *) die "VNC_DEPTH must be 16, 24, or 32" ;; esac
+case "$VNC_LOCALHOST" in yes|no) ;; *) die "VNC_LOCALHOST must be yes or no" ;; esac
+for value in "$VNC_UPDATE_PASSWORD" "$VNC_FORCE_XSTARTUP"; do
+  case "$value" in true|false) ;; *) die "password/startup flags must be true or false" ;; esac
+done
 
-apt_install tigervnc-standalone-server tigervnc-common dbus-x11
+apt_install xfce4 xfce4-terminal tigervnc-standalone-server tigervnc-common tigervnc-tools dbus-x11
 
 home="$(user_home "$VNC_USER")"
-install -d -o "$VNC_USER" -g "$VNC_USER" -m 755 "$home/.vnc"
+[[ "$home" == /* && -d "$home" ]] || die "missing home directory for '$VNC_USER'"
+group="$(id -gn "$VNC_USER")"
+install -d -o "$VNC_USER" -g "$group" -m 700 "$home/.vnc"
+config_changed=false
 
-if [[ -f "$home/.vnc/passwd" && "$VNC_UPDATE_PASSWORD" != "true" ]]; then
+if [[ -s "$home/.vnc/passwd" && "$VNC_UPDATE_PASSWORD" != "true" ]]; then
   log "VNC password already set (VNC_UPDATE_PASSWORD=true to change)"
 elif [[ -n "$VNC_PASSWORD" ]]; then
-  # Ubuntu 22.04+/Debian 12+ TigerVNC ships no password tool; TightVNC's
-  # vncpasswd writes the same standard file, so borrow it when needed.
+  # Compatibility fallback if the packaged TigerVNC password tool is unavailable.
   passwd_tool="$(resolve_vnc_passwd_tool || true)"
   if [[ -z "$passwd_tool" ]]; then
     log "no vncpasswd/tigervncpasswd found; installing tightvncserver for its vncpasswd"
@@ -48,15 +57,27 @@ elif [[ -n "$VNC_PASSWORD" ]]; then
     passwd_tool="$(resolve_vnc_passwd_tool || true)"
   fi
   [[ -n "$passwd_tool" ]] || die "no VNC password tool available (tried tightvncserver; is the universe repo enabled?)"
-  printf '%s' "$VNC_PASSWORD" | su -s /bin/bash "$VNC_USER" -c "$passwd_tool -f > \"\$HOME/.vnc/passwd\""
-  chmod 600 "$home/.vnc/passwd"
-  chown "$VNC_USER:$VNC_USER" "$home/.vnc/passwd"
+  (( ${#VNC_PASSWORD} >= 6 )) || die "VNC_PASSWORD must contain at least 6 characters"
+  tmp=$(mktemp "$home/.vnc/.passwd.XXXXXX")
+  if ! printf '%s\n' "$VNC_PASSWORD" | "$passwd_tool" -f > "$tmp" || [[ ! -s "$tmp" ]]; then
+    rm -f "$tmp"
+    die "failed to generate VNC password"
+  fi
+  if ! cmp -s "$tmp" "$home/.vnc/passwd"; then
+    install -o "$VNC_USER" -g "$group" -m 600 "$tmp" "$home/.vnc/passwd"
+    config_changed=true
+  fi
+  rm -f "$tmp"
   log "VNC password set for '$VNC_USER'"
 else
-  warn "no VNC password: set VNC_PASSWORD and re-run to finish VNC setup"
+  die "set VNC_PASSWORD on the first run (or when VNC_UPDATE_PASSWORD=true)"
 fi
 
-if [[ -f "$home/.vnc/xstartup" && "$VNC_FORCE_XSTARTUP" != "true" ]]; then
+chmod 600 "$home/.vnc/passwd"
+chown "$VNC_USER:$group" "$home/.vnc/passwd"
+
+if [[ -f "$home/.vnc/xstartup" && "$VNC_FORCE_XSTARTUP" != "true" ]] \
+  && ! grep -qF '# managed by vps-setup (06-vnc)' "$home/.vnc/xstartup"; then
   log "xstartup already present"
 else
   session="$(detect_vnc_session)"
@@ -66,11 +87,17 @@ else
     printf '#!/bin/sh\n'
     managed_header "06-vnc"
     printf 'unset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\n'
-    printf 'exec %s\n' "$session"
+    printf "exec /usr/bin/dbus-run-session -- '%s'\n" "${session//\'/\'\\\'\'}"
   } > "$tmp"
-  install -o "$VNC_USER" -g "$VNC_USER" -m 755 "$tmp" "$home/.vnc/xstartup"
+  if ! cmp -s "$tmp" "$home/.vnc/xstartup"; then
+    install -o "$VNC_USER" -g "$group" -m 755 "$tmp" "$home/.vnc/xstartup"
+    config_changed=true
+  fi
   rm -f "$tmp"
 fi
+
+chmod 755 "$home/.vnc/xstartup"
+chown "$VNC_USER:$group" "$home/.vnc/xstartup"
 
 localhost_flag="no"
 if [[ "$VNC_LOCALHOST" == "yes" ]]; then localhost_flag="yes"; fi
@@ -93,9 +120,10 @@ After=syslog.target network.target
 Type=simple
 User=${VNC_USER}
 PAMName=login
-PIDFile=${home}/.vnc/%H:%i.pid
+WorkingDirectory=${home}
+Environment="HOME=${home}"
 ExecStartPre=/bin/sh -c '${vnc_server_bin} -kill :%i > /dev/null 2>&1 || :'
-ExecStart=${vnc_server_bin} :%i -geometry ${VNC_GEOMETRY} -depth ${VNC_DEPTH} -localhost ${localhost_flag}
+ExecStart=${vnc_server_bin} :%i -fg -autokill yes -xstartup "${home}/.vnc/xstartup" -PasswordFile "${home}/.vnc/passwd" -geometry ${VNC_GEOMETRY} -depth ${VNC_DEPTH} -localhost ${localhost_flag}
 ExecStop=${vnc_server_bin} -kill :%i
 Restart=on-failure
 RestartSec=3
@@ -116,21 +144,32 @@ fi
 rm -f "$tmp"
 
 port=$((5900 + VNC_DISPLAY))
-ensure_ufw_allow "${port}/tcp"
+if [[ "$VNC_LOCALHOST" == "no" ]]; then ensure_ufw_allow "${port}/tcp"; fi
 
 svc="vncserver@${VNC_DISPLAY}.service"
-if [[ ! -f "$home/.vnc/passwd" ]]; then
-  warn "skipping service start until VNC password is set"
+systemctl enable "$svc"
+if [[ "$unit_changed" == "true" || "$config_changed" == "true" ]]; then
+  systemctl restart "$svc"
 else
-  if [[ "$unit_changed" == "true" ]]; then
-    systemctl enable --now "$svc"
-    systemctl restart "$svc"
-  else
-    systemctl enable --now "$svc" >/dev/null 2>&1 || systemctl restart "$svc"
-  fi
-  if systemctl is-active --quiet "$svc"; then
-    log "VNC active on :$VNC_DISPLAY (port $port)"
-  else
-    warn "VNC service not active; check: journalctl -u $svc"
-  fi
+  systemctl start "$svc"
 fi
+
+# Require a stable service and an RFB greeting, not just a successful start job.
+ready=0
+for ((attempt = 0; attempt < 30; attempt++)); do
+  if systemctl is-active --quiet "$svc" && timeout 2 bash -c '
+    exec 3<>/dev/tcp/127.0.0.1/"$1"
+    IFS= read -r -N 12 banner <&3
+    [[ "$banner" == RFB\ * ]]
+  ' _ "$port" 2>/dev/null; then
+    ready=$((ready + 1))
+    if (( ready >= 5 )); then
+      log "VNC ready on :$VNC_DISPLAY (port $port, localhost=$VNC_LOCALHOST)"
+      exit 0
+    fi
+  else
+    ready=0
+  fi
+  sleep 1
+done
+die "VNC did not become ready; check: journalctl -u $svc -n 50 --no-pager"

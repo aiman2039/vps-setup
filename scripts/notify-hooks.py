@@ -14,6 +14,8 @@ Subcommands (each prints "changed" or "unchanged"):
       hooks (which would double-ping). Creates the file when missing.
   tmux-block <tmux.conf> <command>
       Ensure a managed bell-hook block exists (replaced in place on re-run).
+      The hook runs `<command> --bell #{pane_pid}` so the ping names the
+      agent in the window that rang the bell, not the word "tmux".
 
 Exit 0 on success; exit 2 with a stderr message when the existing file
 is unsafe to patch (invalid JSON, unexpected shape). Never deletes user data.
@@ -213,7 +215,7 @@ def cmd_tmux_block(path, command):
         TMUX_BEGIN + "\n",
         "set -g monitor-bell on\n",
         "set -g bell-action any\n",
-        "set-hook -g alert-bell \"run-shell -b '%s tmux bell'\"\n" % command,
+        "set-hook -g alert-bell \"run-shell -b '%s --bell #{pane_pid}'\"\n" % command,
         TMUX_END + "\n",
     ]
     try:

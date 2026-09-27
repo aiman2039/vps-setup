@@ -215,10 +215,26 @@ if command -v python3 >/dev/null 2>&1; then
   out2="$(python3 scripts/notify-hooks.py tmux-block "$tx" /bin/ntfy-wait)"
   if [[ "$out1" == "changed" && "$out2" == "unchanged" ]] \
     && grep -q 'set -g mouse on' "$tx" \
-    && [[ "$(grep -c "alert-bell" "$tx")" -eq 1 ]]; then
+    && [[ "$(grep -c "alert-bell" "$tx")" -eq 1 ]] \
+    && grep -F -q -- '--bell #{pane_pid}' "$tx"; then
     ok "tmux-block append idempotent"
   else
     no "tmux-block append idempotent"
+  fi
+  # old "tmux bell" text is replaced by the agent-naming hook
+  printf '%s\n' \
+    '# >>> vps-setup 13-notify >>>' \
+    'set -g monitor-bell on' \
+    'set -g bell-action any' \
+    "set-hook -g alert-bell \"run-shell -b '/bin/ntfy-wait tmux bell'\"" \
+    '# <<< vps-setup 13-notify <<<' \
+    > "$tx"
+  if python3 scripts/notify-hooks.py tmux-block "$tx" /bin/ntfy-wait | grep -q changed \
+    && grep -F -q -- '--bell #{pane_pid}' "$tx" \
+    && ! grep -F -q 'tmux bell' "$tx"; then
+    ok "tmux-block names the pane agent"
+  else
+    no "tmux-block names the pane agent"
   fi
   rm -rf "$tmp"
   trap - EXIT
@@ -271,8 +287,6 @@ EOF
     HOME="$ntmp" NTFY_SERVER="http://127.0.0.1:$port" NTFY_TOPIC="t-Stub9" \
       MACHINE_NAME="testbox" NTFY_CLICK_URL="ssh://agent@10.0.0.9" \
       bash scripts/ntfy-wait.sh codex "build done" >/dev/null 2>&1
-    kill "$srv" 2>/dev/null || true
-    wait "$srv" 2>/dev/null || true
     if [[ -f "$ntmp/got.json" ]] \
       && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "[testbox] codex waiting" ]] \
       && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['click'])")" == "ssh://agent@10.0.0.9" ]]; then
@@ -280,6 +294,62 @@ EOF
     else
       no "ntfy-wait machine tag + click"
     fi
+    # tmux bell: child process claude, not the word "tmux" / "bell"
+    rm -f "$ntmp/got.json"
+    _us=$'\037'
+    bell_panes="4242${_us}main${_us}1${_us}editor${_us}1${_us}zsh${_us}/srv/vps-setup${_us}@7"
+    bell_procs=$'4242\t1\tzsh\n4243\t4242\tclaude'
+    HOME="$ntmp" NTFY_SERVER="http://127.0.0.1:$port" NTFY_TOPIC="t-Stub9" \
+      NTFY_BELL_PANES="$bell_panes" NTFY_BELL_PROCS="$bell_procs" \
+      bash scripts/ntfy-wait.sh --bell 4242 >/dev/null 2>&1
+    if [[ -f "$ntmp/got.json" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "claude waiting" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['body'])")" == "main:1.1 editor (vps-setup)" ]]; then
+      ok "ntfy-wait bell names claude"
+    else
+      no "ntfy-wait bell names claude"
+    fi
+    # node path marker for pi; pip must not match pi
+    rm -f "$ntmp/got.json"
+    bell_panes="9${_us}box${_us}3${_us}editor${_us}1${_us}node${_us}/srv/myrepo${_us}@3"
+    bell_procs=$'9\t1\tnode /u/.nvm/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js'
+    HOME="$ntmp" NTFY_SERVER="http://127.0.0.1:$port" NTFY_TOPIC="t-Stub9" \
+      NTFY_BELL_PANES="$bell_panes" NTFY_BELL_PROCS="$bell_procs" \
+      bash scripts/ntfy-wait.sh --bell 9 >/dev/null 2>&1
+    if [[ -f "$ntmp/got.json" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "pi waiting" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['body'])")" == "box:3.1 editor (myrepo)" ]]; then
+      ok "ntfy-wait bell names pi"
+    else
+      no "ntfy-wait bell names pi"
+    fi
+    rm -f "$ntmp/got.json"
+    bell_procs=$'9\t1\tpip install requests'
+    HOME="$ntmp" NTFY_SERVER="http://127.0.0.1:$port" NTFY_TOPIC="t-Stub9" \
+      NTFY_BELL_PANES="$bell_panes" NTFY_BELL_PROCS="$bell_procs" \
+      bash scripts/ntfy-wait.sh --bell 9 >/dev/null 2>&1
+    if [[ -f "$ntmp/got.json" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "editor waiting" ]]; then
+      ok "ntfy-wait bell ignores pip"
+    else
+      no "ntfy-wait bell ignores pip"
+    fi
+    # two agents in one window are both named
+    rm -f "$ntmp/got.json"
+    bell_panes=$'100\037main\0371\037agents\0371\037zsh\037/srv/a\037@7\n200\037main\0371\037agents\0372\037node\037/srv/b\037@7'
+    bell_procs=$'100\t1\tzsh\n101\t100\tclaude\n200\t1\tnode /home/u/.opencode/bin/opencode'
+    HOME="$ntmp" NTFY_SERVER="http://127.0.0.1:$port" NTFY_TOPIC="t-Stub9" \
+      NTFY_BELL_PANES="$bell_panes" NTFY_BELL_PROCS="$bell_procs" \
+      bash scripts/ntfy-wait.sh --bell 100 >/dev/null 2>&1
+    if [[ -f "$ntmp/got.json" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['title'])")" == "claude, opencode waiting" ]] \
+      && [[ "$(python3 -c "import json;print(json.load(open('$ntmp/got.json'))['body'])")" == "claude main:1.1 agents (a); opencode main:1.2 agents (b)" ]]; then
+      ok "ntfy-wait bell names both agents"
+    else
+      no "ntfy-wait bell names both agents"
+    fi
+    kill "$srv" 2>/dev/null || true
+    wait "$srv" 2>/dev/null || true
   fi
 else
   sk "ntfy-wait posts to topic (needs python3 + curl)"

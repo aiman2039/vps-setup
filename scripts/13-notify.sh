@@ -10,7 +10,7 @@
 #   opencode ~/.config/opencode/plugins/ntfy-wait.js (idle, permission, question)
 #   grok     ~/.grok/config.toml          ([[ui.notifications.hooks]])
 #   pi       ~/.pi/agent/extensions/ntfy-wait.ts (agent_end, approval, prompt)
-#   tmux     ~/.tmux.conf                 (alert-bell hook)
+#   tmux     ~/.tmux.conf                 (alert-bell: names the agent in that window)
 # (Terminator is macOS-only and already tracks waiting state in its own UI;
 # it needs no hook on the VPS.)
 #
