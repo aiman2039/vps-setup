@@ -37,7 +37,19 @@ if [[ ! -f /etc/ssh/sshd_config.bak.vps-setup ]]; then
   log "backed up sshd_config"
 fi
 
-dest=/etc/ssh/sshd_config.d/60-vps-setup.conf
+if ! grep -Eq '^[[:space:]]*Include[[:space:]]+.*sshd_config\.d' /etc/ssh/sshd_config; then
+  warn "sshd_config lacks Include for sshd_config.d; adding it at the top"
+  tmpinc=$(mktemp)
+  { printf 'Include /etc/ssh/sshd_config.d/*.conf\n'; cat /etc/ssh/sshd_config; } > "$tmpinc"
+  install -m 644 "$tmpinc" /etc/ssh/sshd_config
+  rm -f "$tmpinc"
+fi
+
+# NOTE: the 00- prefix matters. sshd takes the FIRST value it sees and Ubuntu
+# cloud images ship 50-cloud-init.conf (often with PasswordAuthentication yes),
+# so our file must sort before it.
+dest=/etc/ssh/sshd_config.d/00-vps-setup.conf
+rm -f /etc/ssh/sshd_config.d/60-vps-setup.conf # legacy name from earlier versions
 tmp=$(mktemp)
 {
   managed_header "02-ssh-only"
@@ -70,4 +82,9 @@ elif ! systemctl is-active --quiet "$svc"; then
 fi
 
 ensure_ufw_allow "OpenSSH"
+eff_pw="$(sshd -T 2>/dev/null | awk '$1=="passwordauthentication"{print $2}')"
+want_pw="$(printf '%s' "$SSH_PASSWORD_AUTH" | tr '[:upper:]' '[:lower:]')"
 log "effective: $(sshd -T 2>/dev/null | grep -Ei '^(passwordauthentication|permitrootlogin|pubkeyauthentication) ' | tr '\n' ';')"
+if [[ "$eff_pw" != "$want_pw" ]]; then
+  die "effective PasswordAuthentication ($eff_pw) != requested ($want_pw); another file in /etc/ssh/sshd_config.d/ overrides ours"
+fi
