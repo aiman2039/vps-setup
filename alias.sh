@@ -1,6 +1,6 @@
 alias c="clear"
 alias grep="grep --color"
-alias lt="lst -lrtha"
+alias lt="ls -lrtha --color"
 alias gs="git status"
 alias rm="rm -i"
 alias cp="cp -i"
