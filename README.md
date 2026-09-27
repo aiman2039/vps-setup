@@ -37,6 +37,7 @@ Preview: `./setup.sh --dry-run --only user,vnc`. List: `./setup.sh --list`.
 | 12-nvm | nvm + Node.js | installs nvm for user, Node LTS, loader in `.zshrc`/`.bashrc` |
 | 14-opencode | opencode agent | standalone binary via official installer (`~/.opencode/bin`) |
 | 15-pi | Pi agent | npm global install (needs node from step 12) |
+| 16-gh | GitHub CLI | official repo, token auth, `gh auth setup-git` so git reuses the token |
 | 13-notify | ntfy agent pings | skipped unless `NTFY_TOPIC` set; hooks claude/codex/muse/opencode/grok/pi/tmux to ping your phone when waiting |
 
 Order matters: user is created before sshd is hardened, so you can't lock

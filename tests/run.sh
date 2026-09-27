@@ -28,7 +28,7 @@ else
 fi
 
 # 3. step selection wiring
-expected="00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker 11-lockdown 12-nvm 13-notify 14-opencode 15-pi"
+expected="00-dns-fix 00-prep 01-user 02-ssh-only 04-mosh 05-tmux 06-vnc 07-rust 08-tailscale 09-zsh 10-docker 11-lockdown 12-nvm 13-notify 14-opencode 15-pi 16-gh"
 if [[ "$(./setup.sh --list | tr '\n' ' ' | sed 's/ $//')" == "$expected" ]]; then
   ok "--list order"
 else
